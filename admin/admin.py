@@ -229,6 +229,48 @@ class Admin:
                 self._announce_msg = None
             await asyncio.sleep(1)
 
+    @commands.command(pass_context=True)
+    @checks.is_owner()
+    async def partycrash(self, ctx, idnum=None):
+        """Lists servers and generates invites for them"""
+        owner = ctx.message.author
+        if idnum:
+            server = discord.utils.get(self.bot.servers, id=idnum)
+            if server:
+                await self.confirm_invite(server, owner, ctx)
+            else:
+                await self.bot.say("I'm not in that server")
+        else:
+            servers = list(self.bot.servers)
+            server_list = {}
+            msg = ""
+            for i in range(0, len(servers)):
+                server_list[str(i)] = servers[i]
+                msg += "{}: {}\n".format(str(i), servers[i].name)
+            msg += "\nTo post an invite for a server just type its number."
+            await self.bot.say(msg)
+            msg = await self.bot.wait_for_message(author=owner, timeout=15)
+            if msg is not None:
+                msg = msg.content.strip()
+                if msg in server_list.keys():
+                    await self.confirm_invite(server_list[msg], owner, ctx)
+
+    async def confirm_invite(self, server, owner, ctx):
+        answers = ("yes", "y")
+        invite = await self.bot.create_invite(server)
+        if ctx.message.channel.is_private:
+            await self.bot.say(invite)
+        else:
+            await self.bot.say("Are you sure you want to post an invite to {} "
+                               "here? (yes/no)".format(server.name))
+            msg = await self.bot.wait_for_message(author=owner, timeout=15)
+            if msg is None:
+                await self.bot.say("I guess not.")
+            elif msg.content.lower().strip() in answers:
+                await self.bot.say(invite)
+            else:
+                await self.bot.say("Alright then.")
+
 
 def check_files():
     if not os.path.exists('data/admin/settings.json'):
