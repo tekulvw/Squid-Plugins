@@ -171,7 +171,7 @@ class Admin:
             msg += "\nTo post an invite for a server just type its number."
             await self.bot.say(msg)
             msg = await self.bot.wait_for_message(author=owner, timeout=15)
-            if msg != None:
+            if msg is not None:
                 msg = msg.content.strip()
                 if msg in server_list.keys():
                     await self.confirm_invite(server_list[msg], owner, ctx)
@@ -183,7 +183,7 @@ class Admin:
             await self.bot.say(invite)
         else:
             await self.bot.say("Are you sure you want to post an invite to {} "
-                "here? (yes/no)".format(server.name))
+                               "here? (yes/no)".format(server.name))
             msg = await self.bot.wait_for_message(author=owner, timeout=15)
             if msg is None:
                 await self.bot.say("I guess not.")
