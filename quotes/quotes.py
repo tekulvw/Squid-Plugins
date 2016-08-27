@@ -1,5 +1,6 @@
 from discord.ext import commands
 from cogs.utils.dataIO import fileIO
+from .utils.chat_formatting import *
 from __main__ import send_cmd_help
 import os
 from random import choice as randchoice
@@ -85,7 +86,7 @@ class Quotes:
         if message.lstrip() == "":
             await self.bot.say(self._get_random_quote())
         else:
-            self._add_quote(message)
+            self._add_quote(escape_mass_mentions(message))
             await self.bot.say("Quote added.")
 
 
