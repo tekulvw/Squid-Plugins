@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 from cogs.utils import checks
 from cogs.utils.dataIO import dataIO
+from .utils.chat_formatting import *
 from __main__ import settings, send_cmd_help
 from copy import deepcopy
 import asyncio
@@ -293,7 +294,7 @@ class Admin:
             evald = text
         if len(str(evald)) > 2000:
             evald = str(evald)[-1990:] + " you fuck."
-        await self.bot.say(evald)
+        await self.bot.say(escape_mass_mentions(evald))
 
     @commands.command(pass_context=True)
     @checks.is_owner()
