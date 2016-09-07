@@ -297,7 +297,8 @@ class Permissions:
             ret = dataIO.load_json("data/permissions/perms.json")
         except:
             ret = {}
-            os.mkdir("data/permissions")
+            if not os.path.exists("data/permissions"):
+                os.mkdir("data/permissions")
             dataIO.save_json("data/permissions/perms.json", ret)
         return ret
 
