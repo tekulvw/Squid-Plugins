@@ -18,6 +18,7 @@ class Admin:
     def __init__(self, bot):
         self.bot = bot
         self._announce_msg = None
+        self._announce_server = None
         self._settings = dataIO.load_json('data/admin/settings.json')
         self._settable_roles = self._settings.get("ROLES", {})
 
@@ -140,6 +141,7 @@ class Admin:
                                " issue a new announcement.")
         else:
             self._announce_msg = msg
+            self._announce_server = ctx.message.server
 
     @commands.command(pass_context=True)
     @checks.is_owner()
@@ -291,6 +293,8 @@ class Admin:
                 break
             server = self.bot.get_server(server_id)
             if server is None:
+                continue
+            if server is self._announce_server:
                 continue
             chan = server.default_channel
             log.debug("Looking to announce to {} on {}".format(chan.name,
