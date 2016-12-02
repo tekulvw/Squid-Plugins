@@ -290,7 +290,7 @@ class Admin:
         """
         new_msg = deepcopy(ctx.message)
         new_msg.author = user
-        new_msg.content = self.bot.settings.get_prefix(new_msg.server)[0] \
+        new_msg.content = self.bot.settings.get_prefixes(new_msg.server)[0] \
             + command
         await self.bot.process_commands(new_msg)
 
