@@ -294,7 +294,7 @@ class Admin:
             server = self.bot.get_server(server_id)
             if server is None:
                 continue
-            if server is self._announce_server:
+            if server == self._announce_server:
                 continue
             chan = server.default_channel
             log.debug("Looking to announce to {} on {}".format(chan.name,
