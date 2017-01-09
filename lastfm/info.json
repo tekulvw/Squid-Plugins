@@ -4,5 +4,6 @@
     "DISABLED" : false,
     "SHORT" : "LastFM Scrobbler",
     "NAME" : "LastFM",
+    "REQUIREMENTS" : ["pylast"],
     "INSTALL_MSG" : "\nMessage from Squid:\n\nHi there. I see you've loaded one of my cogs. Congratulations! I'm glad you've made it this far. If, throughout your journey, you happen to find any problems with any Squid cogs, please feel free to jump in my support server (link below). Also, if you really like my cogs and would like to contribute to further development, please consider becoming a patron for my owner (link also below). Thanks and have fun!\n\nSupport: <http://discord.me/Squid>\nPatron: <https://www.patreon.com/tekulvw>"
 }
