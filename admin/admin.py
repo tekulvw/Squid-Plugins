@@ -288,6 +288,19 @@ class Admin:
                                                              server.id))
             await self.bot.say("Role removed.")
 
+    @selfrole.command(no_pm=True, pass_context=True, name="list")
+    async def selfrole_list(self, ctx):
+        server = ctx.message.server
+        role_names = self._get_selfrole_names(server)
+        if role_names is None:
+            await self.bot.say("I have no user settable roles for this"
+                               " server.")
+            return
+
+        f = self._role_from_string
+        roles = [f(server, r) for r in role_names if r is not None]
+        await self.bot.say(box("\n+ ".join([r.name for r in roles]), lang="diff"))
+
     @commands.command(pass_context=True)
     @checks.is_owner()
     async def sudo(self, ctx, user: discord.Member, *, command):
