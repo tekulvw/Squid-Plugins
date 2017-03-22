@@ -321,6 +321,18 @@ class Admin:
                 log.debug("I can send messages to {} on {}, sending".format(
                     server.name, chan.name))
                 await self.bot.send_message(chan, msg)
+            else:
+                log.debug("I cannot send messages to {} on {}, sending to "
+                          "server owner instead".format(
+                              server.name, chan.name))
+                server_owner = server.owner
+                notice_msg = "Hi, I tried to make an announcement in your "\
+                    + "server," + server.name + ", but I don't have "\
+                    + "permissions to send messages in the default "\
+                    + "channel there! So I am sending you the "\
+                    + "message instead. It will follow this message."
+                await self.bot.send_message(server_owner, notice_msg)
+                await self.bot.send_message(server_owner, msg)
             await asyncio.sleep(1)
 
     async def announce_manager(self):
