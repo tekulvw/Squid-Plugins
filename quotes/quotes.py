@@ -63,7 +63,7 @@ class Quotes:
                 mess += "\n" + line
             else:
                 await self.bot.send_message(ctx.message.author, mess)
-                mess = ""
+                mess = line
         if mess != "":
             await self.bot.send_message(ctx.message.author, mess)
 
