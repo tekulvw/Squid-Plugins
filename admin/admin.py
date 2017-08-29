@@ -354,6 +354,14 @@ class Admin:
             if server == self._announce_server:
                 continue
             chan = server.default_channel
+            if chan is None:
+                log.debug(
+                    "No default channel for {}, skipping".format(
+                        server.name
+                    )
+                )
+                await asyncio.sleep(1)
+                continue  # Skip to next because there's no default channel
             log.debug("Looking to announce to {} on {}".format(chan.name,
                                                                server.name))
             me = server.me
