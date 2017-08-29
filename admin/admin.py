@@ -355,13 +355,23 @@ class Admin:
                 continue
             chan = server.default_channel
             if chan is None:
-                log.debug(
-                    "No default channel for {}, skipping".format(
-                        server.name
-                    )
-                )
-                await asyncio.sleep(1)
-                continue  # Skip to next because there's no default channel
+                chan_list = [
+                    c for c in sorted(
+                        server.channels, key=lambda ch: ch.position
+                    ) if c.type.name == "text"
+                ]
+                for ch in chan_list:
+                    roleless_member = [
+                        m for m in server.members if m.roles == [
+                            server.default_role
+                        ]
+                    ][0]
+                    if ch.permissions_for(roleless_member).read_messages and\
+                            ch.permissions_for(server.me).send_messages:
+                        chan = ch
+                        break
+                else:
+                    continue  # No valid channel found, so move on
             log.debug("Looking to announce to {} on {}".format(chan.name,
                                                                server.name))
             me = server.me
