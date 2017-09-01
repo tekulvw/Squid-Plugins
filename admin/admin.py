@@ -24,7 +24,12 @@ class Admin:
 
     async def _confirm_invite(self, server, owner, ctx):
         answers = ("yes", "y")
-        invite = await self.bot.create_invite(server)
+        invite_dest = \
+            self.get_default_channel_or_other(server, None,
+                                              create_instant_invite=True)
+        if invite_dest is None:
+            return await self.bot.say("Could not generate invite.")
+        invite = await self.bot.create_invite(invite_dest)
         if ctx.message.channel.is_private:
             await self.bot.say(invite)
         else:
@@ -57,7 +62,7 @@ class Admin:
         try:
             log.debug("Role {} found from rolename {}".format(
                 role.name, rolename))
-        except:
+        except Exception:
             log.debug("Role not found for rolename {}".format(rolename))
         return role
 
@@ -343,6 +348,35 @@ class Admin:
         else:
             await self.bot.say("Done.")
 
+    def get_default_channel_or_other(self, server,
+                                     ctype: discord.ChannelType=None,
+                                     **perms_required):
+
+        perms = discord.Permissions.none()
+        perms.update(**perms_required)
+        if ctype is None:
+            types = ["text", "voice"]
+        elif ctype == discord.ChannelType.text:
+            types = ["text"]
+        else:
+            types = ["voice"]
+        try:
+            channel = server.default_channel
+        except Exception:
+            channel = None
+        if channel is not None:
+            if channel.permissions_for(server.me).is_superset(perms):
+                return channel
+
+        chan_list = [c for c in sorted(server.channels,
+                                       key=lambda ch: ch.position)
+                     if c.type.name in types]
+        for ch in chan_list:
+            if ch.permissions_for(server.me).is_superset(perms):
+                return ch
+
+        return None
+
     async def announcer(self, msg):
         server_ids = map(lambda s: s.id, self.bot.servers)
         for server_id in server_ids:
@@ -353,7 +387,13 @@ class Admin:
                 continue
             if server == self._announce_server:
                 continue
-            chan = server.default_channel
+            chan = self.get_default_channel_or_other(server,
+                                                     discord.ChannelType.text,
+                                                     send_messages=True)
+            if chan is None:
+                log.debug("No valid announcement channel for {0.id} || "
+                          "{0.name}".format(server))
+                continue
             log.debug("Looking to announce to {} on {}".format(chan.name,
                                                                server.name))
             me = server.me

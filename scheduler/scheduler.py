@@ -10,6 +10,7 @@ import asyncio
 import time
 from random import randint
 from math import ceil
+import datetime
 
 log = logging.getLogger("red.scheduler")
 log.setLevel(logging.INFO)
@@ -78,7 +79,7 @@ class Scheduler:
                                                                    fut))
 
     async def _add_event(self, name, command, dest_server, dest_channel,
-                         author, timedelta, repeat=False):
+                         author, timedelta, repeat=False, t=None):
         if isinstance(dest_server, discord.Server):
             dest_server = dest_server.id
         if isinstance(dest_channel, discord.Channel):
@@ -98,7 +99,10 @@ class Scheduler:
 
         log.debug('event dict:\n\t{}'.format(event_dict))
 
-        now = int(time.time())
+        if t is None:
+            now = int(time.time())
+        else:
+            now = t
         event_dict['starttime'] = now
         self.events[dest_server][name] = event_dict.copy()
 
@@ -181,6 +185,48 @@ class Scheduler:
         await self._add_event(name, command, server, channel, author, s, True)
         await self.bot.say('"{}" will run "{}" every {}s'.format(name, command,
                                                                  s))
+
+    @scheduler.command(pass_context=True, name="repeatfrom")
+    async def _scheduler_repeat_from(self, ctx, name, time_interval,
+                                     cycle_start: str, *, command):
+        """Add a command to run every [time_interval] from [cycle_start].
+
+
+        Times intervals are formed as follows: 1s, 2m, 3h, 5d, 1w
+
+        [cycle_start] is fromed as: YYYY-MM-DDHH:mm (no spaces)
+        """
+        channel = ctx.message.channel
+        server = ctx.message.server
+        author = ctx.message.author
+        name = name.lower()
+
+        try:
+            s = self._parse_time(time_interval)
+            log.debug('run command in {}s'.format(s))
+        except:
+            await self.bot.send_cmd_help(ctx)
+            return
+        try:
+            cycle_start = ''.join(c for c in cycle_start if c.isdigit())
+            dt = datetime.datetime.strptime(cycle_start, "%Y%m%d%H%M")
+            t = time.mktime(dt.timetuple())
+        except ValueError:
+            await self.bot.send_cmd_help(ctx)
+            return
+        if s < 30:
+            await self.bot.reply('yeah I can\'t do that, your time'
+                                 ' interval is waaaay too short and I\'ll'
+                                 ' likely get rate limited. Try going above'
+                                 ' 30 seconds.')
+            return
+        log.info('add {} "{}" to {} on {} every {}s beginning from {}'.format(
+            name, command, channel.name, server.name, s, cycle_start))
+        await self._add_event(name, command, server,
+                              channel, author, s, True, t)
+        await self.bot.say('"{}" will run "{}" every {}s '
+                           'starting from {}'.format(name,
+                                                     command, s, cycle_start))
 
     @scheduler.command(pass_context=True, name="remove")
     async def _scheduler_remove(self, ctx, name):
