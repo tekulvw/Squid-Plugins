@@ -358,7 +358,10 @@ class Admin:
             types = ["text"]
         else:
             types = ["voice"]
-        channel = server.default_channel
+        try:
+            channel = server.default_channel
+        except Exception:
+            channel = None
         if channel is not None:
             if channel.permissions_for(server.me).is_superset(perms):
                 return channel
