@@ -27,7 +27,9 @@ class Admin:
         invite_dest = \
             self.get_default_channel_or_other(server, None,
                                               create_instant_invite=True)
-        invite = await self.bot.create_invite(server)
+        if invite_dest is None:
+            return await self.bot.say("Could not generate invite.")
+        invite = await self.bot.create_invite(invite_dest)
         if ctx.message.channel.is_private:
             await self.bot.say(invite)
         else:
@@ -365,15 +367,15 @@ class Admin:
         if channel is not None:
             if channel.permissions_for(server.me).is_superset(perms):
                 return channel
-        if channel is None:
-            chan_list = [c for c in sorted(server.channels,
-                                           key=lambda ch: ch.position)
-                         if c.type.name in types]
-            for ch in chan_list:
-                if ch.permissions_for(server.me).is_superset(perms):
-                    return ch
-            else:
-                return None
+
+        chan_list = [c for c in sorted(server.channels,
+                                       key=lambda ch: ch.position)
+                     if c.type.name in types]
+        for ch in chan_list:
+            if ch.permissions_for(server.me).is_superset(perms):
+                return ch
+
+        return None
 
     async def announcer(self, msg):
         server_ids = map(lambda s: s.id, self.bot.servers)
@@ -388,6 +390,10 @@ class Admin:
             chan = self.get_default_channel_or_other(server,
                                                      discord.ChannelType.text,
                                                      send_messages=True)
+            if chan is None:
+                log.debug("No valid announcement channel for {0.id} || "
+                          "{0.name}".format(server))
+                continue
             log.debug("Looking to announce to {} on {}".format(chan.name,
                                                                server.name))
             me = server.me
