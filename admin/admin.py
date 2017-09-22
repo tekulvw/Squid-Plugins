@@ -304,7 +304,7 @@ class Admin:
                                    "".format(" and ".join(selfroles)))
             else:
                 await self.bot.say("You can currently"
-                                   "give yourself\n{}."
+                                   " give yourself\n{}."
                                    "".format(", ".join(selfroles)))
 
     @commands.command(pass_context=True)
