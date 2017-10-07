@@ -355,11 +355,11 @@ class Admin:
         perms = discord.Permissions.none()
         perms.update(**perms_required)
         if ctype is None:
-            types = ["text", "voice"]
+            types = [discord.ChannelType.text, discord.ChannelType.voice]
         elif ctype == discord.ChannelType.text:
-            types = ["text"]
+            types = [discord.ChannelType.text]
         else:
-            types = ["voice"]
+            types = [discord.ChannelType.voice]
         try:
             channel = server.default_channel
         except Exception:
@@ -370,7 +370,7 @@ class Admin:
 
         chan_list = [c for c in sorted(server.channels,
                                        key=lambda ch: ch.position)
-                     if c.type.name in types]
+                     if c.type in types]
         for ch in chan_list:
             if ch.permissions_for(server.me).is_superset(perms):
                 return ch
