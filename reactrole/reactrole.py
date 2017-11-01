@@ -4,8 +4,8 @@ from typing import List, Union
 import discord
 from discord.ext import commands
 
-from core import Config
-from core.bot import Red
+from redbot.core import Config
+from redbot.core.bot import Red
 
 
 class ReactRoleCombo:
@@ -195,6 +195,8 @@ class ReactRole:
             try:
                 return await channel.get_message(message_id)
             except discord.NotFound:
+                pass
+            except AttributeError: # VoiceChannel object has no attribute 'get_message'
                 pass
 
         return None
