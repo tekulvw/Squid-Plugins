@@ -235,7 +235,7 @@ class ReactRole:
         Base command for this cog. Check help for the commands list.
         """
         if ctx.invoked_subcommand is None:
-            await ctx.bot.send_cmd_help(ctx)
+            await ctx.send_help()
 
     @reactrole.command()
     async def add(self, ctx: commands.Context, message_id: int, *, role: discord.Role):
