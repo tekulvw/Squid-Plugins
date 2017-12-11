@@ -1,6 +1,6 @@
 {
-    "AUTHOR" : "Will/tekulvw",
-    "DESCRIPTION" : "Schedule commands to run once, or on repeat.",
+    "AUTHOR" : "Will/tekulvw and GrumpiestVulcan",
+    "DESCRIPTION" : "Schedule commands to run once, or on repeat, with an adjustable start time.",
     "DISABLED" : false,
     "SHORT" : "Schedule commands to run.",
     "NAME" : "Scheduler",
