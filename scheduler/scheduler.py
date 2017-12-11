@@ -1,37 +1,139 @@
 import discord
 from discord.ext import commands
 from cogs.utils import checks
-from cogs.utils.dataIO import fileIO
-from cogs.utils.chat_formatting import *
+from cogs.utils.dataIO import dataIO
+from cogs.utils.chat_formatting import box, error, warning
 
 import logging
 import os
+import re
 import asyncio
 import time
+from datetime import datetime, timezone, timedelta
 from random import randint
 from math import ceil
+from collections import defaultdict
 
 log = logging.getLogger("red.scheduler")
 log.setLevel(logging.INFO)
 
+JSON = 'data/scheduler/events.json'
+
+UNIT_TABLE = (
+    (('weeks', 'wks', 'w'), 60 * 60 * 24 * 7),
+    (('days', 'dys', 'd'), 60 * 60 * 24),
+    (('hours', 'hrs', 'h'), 60 * 60),
+    (('minutes', 'mins', 'm'), 60),
+    (('seconds', 'secs', 's'), 1),
+)
+
 
 class Event:
-    def __init__(self, data=None):
-        self.name = data.pop('name')
-        self.channel = data.pop('channel')
-        self.server = data.pop('server')
-        self.author = data.pop('author')
-        self.command = data.pop('command')
-        self.timedelta = data.pop('timedelta')
-        self.repeat = data.pop('repeat')
-        self.starttime = data.pop('starttime', None)
+    __slots__ = ['name', 'channel', 'server', 'author', 'command',
+                 'timedelta', 'repeat', 'starttime']
 
-    def __lt__(self, other):
-        my_sig = "{}-{}-{}-{}".format(self.timedelta, self.name,
-                                      self.starttime, self.channel)
-        other_sig = "{}-{}-{}-{}".format(other.timedelta, other.name,
-                                         other.starttime, other.channel)
-        return hash(my_sig) < hash(other_sig)
+    def __init__(self, **data):
+        self.name = data['name']
+        self.channel = data['channel']
+        self.server = data['server']
+        self.author = data['author']
+        self.command = data['command']
+        self.timedelta = data['timedelta']
+        self.repeat = data['repeat']
+        self.starttime = data.get('starttime')
+
+    @staticmethod
+    def _key(obj):
+        return (obj.timedelta, obj.name, obj.starttime, obj.channel)
+
+    def __hash__(self):
+        return hash(self._key(self))
+
+    def __eq__(self, other):
+        if type(self) is not type(other):
+            return False
+        for k in self.__slots__:
+            if getattr(self, k) != getattr(other, k):
+                return False
+        return True
+
+
+class BadTimeExpr(ValueError):
+    pass
+
+
+def _find_unit(unit):
+    for names, length in UNIT_TABLE:
+        if any(n.startswith(unit) for n in names):
+            return names, length
+    raise BadTimeExpr("Invalid unit: %s" % unit)
+
+
+def _parse_time(time):
+    time = time.lower()
+    if not time.isdigit():
+        time = re.split(r'\s*([\d.]+\s*[^\d\s,;]*)(?:[,;\s]|and)*', time)
+        time = sum(map(_timespec_sec, filter(None, time)))
+    return int(time)
+
+
+def _timespec_sec(expr):
+    atoms = re.split(r'([\d.]+)\s*([^\d\s]*)', expr)
+    atoms = list(filter(None, atoms))
+
+    if len(atoms) > 2:  # This shouldn't ever happen
+        raise BadTimeExpr("invalid expression: '%s'" % expr)
+    elif len(atoms) == 2:
+        names, length = _find_unit(atoms[1])
+        if atoms[0].count('.') > 1 or \
+                not atoms[0].replace('.', '').isdigit():
+            raise BadTimeExpr("Not a number: '%s'" % atoms[0])
+    else:
+        names, length = _find_unit('seconds')
+
+    return float(atoms[0]) * length
+
+
+def _generate_timespec(sec, short=False, micro=False):
+    timespec = []
+
+    for names, length in UNIT_TABLE:
+        n, sec = divmod(sec, length)
+
+        if n:
+            if micro:
+                s = '%d%c' % (n, names[2])
+            elif short:
+                s = '%02.d%s' % (n, names[1])
+            else:
+                s = '%02.d %s' % (n, names[0])
+            if n <= 1:
+                s = s.rstrip('s')
+            timespec.append(s)
+
+    if len(timespec) > 1:
+        if micro:
+            return ''.join(timespec)
+
+        segments = timespec[:-1], timespec[-1:]
+        return ' and '.join(', '.join(x) for x in segments)
+
+    return timespec[0]
+
+
+def _convert_iso8601(input_string):
+    tsre = r"[:]|([-](?!((\d{2}[:]\d{2})|(\d{4}))$))"
+    ts = re.sub(tsre, '', input_string)
+
+    if ts.endswith(('z', 'Z')):
+        ts = ts[:-1] + '+0000'
+
+    if '.' in ts:
+        fmt = "%Y%m%dT%H%M%S.%f%z"
+    else:
+        fmt = "%Y%m%dT%H%M%S%z"
+
+    return datetime.strptime(ts, fmt)
 
 
 class Scheduler:
@@ -42,83 +144,107 @@ class Scheduler:
 
     def __init__(self, bot):
         self.bot = bot
-        self.events = fileIO('data/scheduler/events.json', 'load')
+        self.events = dataIO.load_json(JSON)
         self.queue = asyncio.PriorityQueue(loop=self.bot.loop)
         self.queue_lock = asyncio.Lock()
-        self.to_kill = {}
+        self.pending = {}
+        self.pending_by_event = defaultdict(lambda: list())
         self._load_events()
+        self.task = bot.loop.create_task(self.queue_manager())
+
+    def __unload(self):
+        self.task.cancel()
 
     def save_events(self):
-        fileIO('data/scheduler/events.json', 'save', self.events)
-        log.debug('saved events:\n\t{}'.format(self.events))
+        dataIO.save_json(JSON, self.events)
 
     def _load_events(self):
         # for entry in the self.events make an Event
         for server in self.events:
             for name, event in self.events[server].items():
-                ret = {}
-                ret['server'] = server
-                ret.update(event)
-                e = Event(ret)
+                e = Event(server=server, **event)
                 self.bot.loop.create_task(self._put_event(e))
 
     async def _put_event(self, event, fut=None, offset=None):
         if fut is None:
             now = int(time.time())
+
             if event.repeat:
-                diff = now - event.starttime
+                diff = max(now - event.starttime, 0)
                 fut = ((ceil(diff / event.timedelta) * event.timedelta) +
                        event.starttime)
             else:
                 fut = now + event.timedelta
+
         if offset:
             fut += offset
+
         await self.queue.put((fut, event))
+
         log.debug('Added "{}" to the scheduler queue at {}'.format(event.name,
                                                                    fut))
 
     async def _add_event(self, name, command, dest_server, dest_channel,
-                         author, timedelta, repeat=False):
+                         author, timedelta, repeat=False, start=None):
         if isinstance(dest_server, discord.Server):
             dest_server = dest_server.id
+
         if isinstance(dest_channel, discord.Channel):
             dest_channel = dest_channel.id
+
         if isinstance(author, discord.User):
             author = author.id
 
         if dest_server not in self.events:
             self.events[dest_server] = {}
 
-        event_dict = {'name': name,
-                      'channel': dest_channel,
-                      'author': author,
-                      'command': command,
-                      'timedelta': timedelta,
-                      'repeat': repeat}
+        if isinstance(start, datetime):
+            start = start.timestamp()
+
+        event_dict = {
+            'name' : name,
+            'channel' : dest_channel,
+            'author' : author,
+            'command' : command,
+            'timedelta' : timedelta,
+            'repeat' : repeat,
+            'starttime' : start or int(time.time())
+        }
 
         log.debug('event dict:\n\t{}'.format(event_dict))
 
-        now = int(time.time())
-        event_dict['starttime'] = now
-        self.events[dest_server][name] = event_dict.copy()
-
-        event_dict['server'] = dest_server
-        e = Event(event_dict.copy())
+        self.events[dest_server][name] = event_dict
+        e = Event(server=dest_server, **event_dict)
         await self._put_event(e)
 
         self.save_events()
 
     async def _remove_event(self, name, server):
-        await self.queue_lock.acquire()
         events = []
-        while self.queue.qsize() != 0:
-            time, event = await self.queue.get()
-            if not (name == event.name and server.id == event.server):
-                events.append((time, event))
+        removed = None
 
-        for event in events:
-            await self.queue.put(event)
-        self.queue_lock.release()
+        async with self.queue_lock:
+
+            while not self.queue.empty():
+                time, event = self.queue.get_nowait()
+                if name == event.name and server.id == event.server:
+                    removed = (time, event)
+                    break
+                else:
+                    events.append((time, event))
+
+            for event in events:
+                self.queue.put_nowait(event)
+
+        time, event = removed
+        if self.pending_by_event[event]:
+            for ts in self.pending_by_event[event]:
+                k = (ts, event)
+                self.pending[k].cancel()
+                del self.pending[k]
+            del self.pending_by_event[event]
+
+        return removed
 
     @commands.group(no_pm=True, pass_context=True)
     @checks.mod_or_permissions(manage_messages=True)
@@ -129,58 +255,109 @@ class Scheduler:
 
     @scheduler.command(pass_context=True, name="add")
     async def _scheduler_add(self, ctx, time_interval, *, command):
-        """Add a command to run in [time_interval] seconds.
+        """Add a command to run in [time_interval].
 
-        Times are formed as follows: 1s, 2m, 3h, 5d, 1w
+        Intervals are any combination of units: 1s, 2m, 3h, 5d, 1w.
         """
-        channel = ctx.message.channel
-        server = ctx.message.server
-        author = ctx.message.author
         name = command.lower()
-        try:
-            s = self._parse_time(time_interval)
-            log.debug('run command in {}s'.format(s))
-        except:
-            await self.bot.send_cmd_help(ctx)
-            return
-        if s < 30:
-            await self.bot.reply('yeah I can\'t do that, your time'
-                                 ' interval is waaaay too short and I\'ll'
-                                 ' likely get rate limited. Try going above'
-                                 ' 30 seconds.')
-            return
-        log.info('add {} "{}" to {} on {} in {}s'.format(
-            name, command, channel.name, server.name, s))
-        await self._add_event(name, command, server, channel, author, s)
-        await self.bot.say('I will run "{}" in {}s'.format(command, s))
+        await self._add_centralized(ctx, name, time_interval, command, False)
 
     @scheduler.command(pass_context=True, name="repeat")
     async def _scheduler_repeat(self, ctx, name, time_interval, *, command):
-        """Add a command to run every [time_interval] seconds.
+        """Add a command to run every [time_interval].
 
-        Times are formed as follows: 1s, 2m, 3h, 5d, 1w
+        Intervals are any combination of units: 1s, 2m, 3h, 5d, 1w.
         """
+        await self._add_centralized(ctx, name, time_interval, command, True)
+
+    @scheduler.command(pass_context=True, name="repeat_from")
+    async def _scheduler_repeat_from(self, ctx, name, start, interval, *,
+                                     command):
+        """Add a command to run every [interval] starting at [start].
+
+        Start time must be an ISO8601 timestamp, unix timestamp or 'now'.
+
+        An ISO8601 timestamp looks like this: 2017-12-11T01:15:03.449371-0500.
+
+        The interval is any combination of units: 1s, 2m, 3h, 5d, 1w.
+        """
+        await self._add_centralized(ctx, name, interval, command, True, start)
+
+    @scheduler.command(pass_context=True, name="repeat_in")
+    async def _scheduler_repeat_in(self, ctx, name, start_in, interval, *,
+                                   command):
+        """Add a command to run every [interval] starting in [start_in].
+
+        Both intervals are any combination of units: 1s, 2m, 3h, 5d, 1w.
+        """
+        await self._add_centralized(ctx, name, interval, command, True,
+                                    start_in=start_in)
+
+    async def _add_centralized(self, ctx, name, interval, command,
+                               repeat, start=None, start_in=None):
         channel = ctx.message.channel
         server = ctx.message.server
         author = ctx.message.author
         name = name.lower()
+        now = datetime.now(tz=timezone.utc)
+
+        min_time = 30 if repeat else 5
+
+        prefix = await self.get_prefix(ctx.message)
+        command = command.lstrip(prefix)
+
         try:
-            s = self._parse_time(time_interval)
-            log.debug('run command in {}s'.format(s))
-        except:
-            await self.bot.send_cmd_help(ctx)
+            interval = _parse_time(interval)
+        except BadTimeExpr as e:
+            await self.bot.say(error(e.args[0]))
             return
-        if s < 30:
-            await self.bot.reply('yeah I can\'t do that, your time'
-                                 ' interval is waaaay too short and I\'ll'
-                                 ' likely get rate limited. Try going above'
-                                 ' 30 seconds.')
+
+        if start_in:
+            try:
+                start_in = _parse_time(start_in)
+            except BadTimeExpr as e:
+                await self.bot.say(error(e.args[0]))
+                return
+            start = now + timedelta(seconds=start_in)
+        elif start:
+            try:
+                start = self._get_start(start, now)
+            except ValueError:
+                await self.bot.say(error('Invalid timestamp format!'))
+                return
+        else:
+            start = now
+
+        if interval < min_time:
+            await self.bot.say("I'm sorry, {}, I can't let you do that. "
+                               "Your time interval is waaaay too short and "
+                               "I'll likely get rate limited. Try going above"
+                               " {} seconds.".format(author.name, min_time))
             return
-        log.info('add {} "{}" to {} on {} every {}s'.format(
-            name, command, channel.name, server.name, s))
-        await self._add_event(name, command, server, channel, author, s, True)
-        await self.bot.say('"{}" will run "{}" every {}s'.format(name, command,
-                                                                 s))
+        elif name in self.events.get(server.id, {}):
+            msg = warning("An event with that name already exists!")
+            await self.bot.say(msg)
+            return
+
+        if repeat:
+            logmsg = 'add {} "{}" to {} on {} every {}s starting {}'
+            msg = '"{}" will run `{}` every {}, starting at {} ({}).'
+        else:
+            logmsg = 'add {} "{}" to {} on {} in {}s'
+            msg = 'I will run `{1}` in {2}.'
+
+        log.info(logmsg.format(name, command, channel.name,
+                               server.name, interval, start.timestamp()))
+
+        await self._add_event(name, command, server, channel, author,
+                              interval, repeat, start)
+
+        timeexpr = _generate_timespec(interval)
+
+        delta = self._format_start(start, now)
+
+        msg = msg.format(name, command, timeexpr, start, delta)
+        await self.bot.say(msg)
 
     @scheduler.command(pass_context=True, name="remove")
     async def _scheduler_remove(self, ctx, name):
@@ -188,108 +365,144 @@ class Scheduler:
         """
         server = ctx.message.server
         name = name.lower()
-        if server.id not in self.events:
+
+        if not self.events.get(server.id):
             await self.bot.say('No events are scheduled for this server.')
-            return
-        if name not in self.events[server.id]:
-            await self.bot.say('That event does not exist on this server.')
             return
 
         del self.events[server.id][name]
         await self._remove_event(name, server)
         self.save_events()
-        await self.bot.say('"{}" has successfully been removed but'
-                           ' it may run once more.'.format(name))
+        await self.bot.say('"{}" has successfully been removed.'.format(name))
 
     @scheduler.command(pass_context=True, name="list")
     async def _scheduler_list(self, ctx):
         """Lists all repeated commands
         """
         server = ctx.message.server
-        if server.id not in self.events:
+
+        if not self.events.get(server.id):
             await self.bot.say('No events scheduled for this server.')
             return
-        elif len(self.events[server.id]) == 0:
-            await self.bot.say('No events scheduled for this server.')
-            return
+
         mess = "Names:\n\t"
         mess += "\n\t".join(sorted(self.events[server.id].keys()))
         await self.bot.say(box(mess))
 
-    def _parse_time(self, time):
-        translate = {'s': 1, 'm': 60, 'h': 3600, 'd': 86400, 'w': 604800}
-        timespec = time[-1]
-        if timespec.lower() not in translate:
-            raise ValueError
-        timeint = int(time[:-1])
-        return timeint * translate.get(timespec)
-
-    def run_coro(self, event):
+    def run_coro(self, event, schedtime):
         channel = self.bot.get_channel(event.channel)
-        try:
-            server = channel.server
-            prefix = self.bot.settings.get_prefixes(server)[0]
-        except AttributeError:
+
+        if channel is None:
             log.debug("Channel no longer found, not running scheduled event.")
-            return
-        data = {}
-        data['timestamp'] = time.strftime("%Y-%m-%dT%H:%M:%S%z", time.gmtime())
-        data['id'] = randint(10**(17), (10**18) - 1)
-        data['content'] = prefix + event.command
-        data['channel'] = self.bot.get_channel(event.channel)
-        data['author'] = {'id': event.author}
-        data['nonce'] = randint(-2**32, (2**32) - 1)
-        data['channel_id'] = event.channel
-        data['reactions'] = []
-        fake_message = discord.Message(**data)
-        # coro = self.bot.process_commands(fake_message)
-        log.info("Running '{}' in {}".format(event.name, event.server))
-        # self.bot.loop.create_task(coro)
-        self.bot.dispatch('message', fake_message)
+        else:
+            prefix = self.bot.settings.get_prefixes(channel.server)[0]
+
+            data = {}
+            timestamp = time.strftime("%Y-%m-%dT%H:%M:%S%z", time.gmtime())
+            data['timestamp'] = timestamp
+            data['id'] = randint(10**(17), (10**18) - 1)
+            data['content'] = prefix + event.command
+            data['channel'] = self.bot.get_channel(event.channel)
+            data['author'] = {'id': event.author}
+            data['nonce'] = randint(-2**32, (2**32) - 1)
+            data['channel_id'] = event.channel
+            data['reactions'] = []
+            fake_message = discord.Message(**data)
+            log.info("Running '{}' in {}".format(event.name, event.server))
+            self.bot.dispatch('message', fake_message)
+
+        t = (schedtime, event)
+        if t in self.pending:
+            del self.pending[t]
+        self.pending_by_event[event].remove(schedtime)
+
+    async def process_queue_event(self):
+        if self.queue.empty():
+            return False
+
+        now = int(time.time())
+        next_time, next_event = await self.queue.get()
+
+        diff = max(next_time - now, 0)
+
+        if diff < 30:
+            log.debug('scheduling call of "{}" in {}s'.format(
+                next_event.name, diff))
+
+            fut = self.bot.loop.call_later(diff, self.run_coro,
+                                           next_event, next_time)
+            self.pending[(next_time, next_event)] = fut
+            self.pending_by_event[next_event].append(next_time)
+
+            if next_event.repeat:
+                await self._put_event(next_event, next_time,
+                                      next_event.timedelta)
+            else:
+                del self.events[next_event.server][next_event.name]
+                self.save_events()
+            return True
+        else:
+            log.debug('Will run {} "{}" in {}s'.format(
+                next_event.name, next_event.command, diff))
+            await self._put_event(next_event, next_time)
+            return False
+
+    async def get_prefix(self, msg, content=None):
+        prefixes = self.bot.command_prefix
+        if callable(prefixes):
+            prefixes = prefixes(self.bot, msg)
+            if asyncio.iscoroutine(prefixes):
+                prefixes = await prefixes
+
+        content = content or msg.content
+
+        for p in prefixes:
+            if content.startswith(p):
+                return p
+        return None
 
     async def queue_manager(self):
-        while self == self.bot.get_cog('Scheduler'):
-            await self.queue_lock.acquire()
-            if self.queue.qsize() != 0:
-                curr_time = int(time.time())
-                next_tuple = await self.queue.get()
-                next_time = next_tuple[0]
-                next_event = next_tuple[1]
-                diff = next_time - curr_time
-                diff = diff if diff >= 0 else 0
-                if diff < 30:
-                    log.debug('scheduling call of "{}" in {}s'.format(
-                        next_event.name, diff))
-                    fut = self.bot.loop.call_later(diff, self.run_coro,
-                                                   next_event)
-                    self.to_kill[next_time] = fut
-                    if next_event.repeat:
-                        await self._put_event(next_event, next_time,
-                                              next_event.timedelta)
-                    else:
-                        del self.events[next_event.server][next_event.name]
-                        self.save_events()
-                else:
-                    log.debug('Will run {} "{}" in {}s'.format(
-                        next_event.name, next_event.command, diff))
-                    await self._put_event(next_event, next_time)
-            self.queue_lock.release()
+        try:
+            await self.bot.wait_until_ready()
 
-            to_delete = []
-            for start_time, old_command in self.to_kill.items():
-                if time.time() > start_time + 30:
-                    old_command.cancel()
-                    to_delete.append(start_time)
-            for item in to_delete:
-                del self.to_kill[item]
+            while self == self.bot.get_cog('Scheduler'):
+                while True:
+                    async with self.queue_lock:
+                        if not await self.process_queue_event():
+                            break
 
-            await asyncio.sleep(5)
-        log.debug('manager dying')
-        while self.queue.qsize() != 0:
-            await self.queue.get()
-        while len(self.to_kill) != 0:
-            curr = self.to_kill.pop()
-            curr.cancel()
+                await asyncio.sleep(5)
+
+        except asyncio.CancelledError:
+            pass
+        finally:
+            log.debug('manager dying')
+
+            while not self.queue.empty():
+                await self.queue.get()
+
+            for fut in self.pending.values():
+                fut.cancel()
+
+    def _get_start(self, start, now):
+        if start.lower() == 'now' or start is None:
+            return now
+        elif start.count('.') == 1 and start.replace('.', '').isdigit():
+            ts = datetime.utcfromtimestamp(float(start))
+            return ts.replace(tzinfo=timezone.utc)
+        elif start:
+            return _convert_iso8601(start)
+
+    def _format_start(self, start, now):
+        if start == now:
+            return 'now'
+        else:
+            diff_seconds = (now - start).total_seconds()
+            delta = _generate_timespec(abs(diff_seconds))
+            if diff_seconds < 0:
+                return 'in ' + delta
+            else:
+                return delta + ' ago'
 
 
 def check_folder():
@@ -298,15 +511,12 @@ def check_folder():
 
 
 def check_files():
-    f = 'data/scheduler/events.json'
-    if not os.path.exists(f):
-        fileIO(f, 'save', {})
+    if not dataIO.is_valid_json(JSON):
+        print('Creating empty %s' % JSON)
+        dataIO.save_json(JSON, {})
 
 
 def setup(bot):
     check_folder()
     check_files()
-    n = Scheduler(bot)
-    loop = asyncio.get_event_loop()
-    loop.create_task(n.queue_manager())
-    bot.add_cog(n)
+    bot.add_cog(Scheduler(bot))
