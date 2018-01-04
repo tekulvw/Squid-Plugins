@@ -947,17 +947,16 @@ class Permissions:
         await self._lock_server(command, server, False)
         await self.bot.say("Server unlocked {}".format(command))
 
-    @commands.group(pass_context=True)
-    @checks.is_owner()
+    @p.group(pass_context=True)
     async def hidehelp(self, ctx):
-        """Toggle help filtering based on Permissions"""
+        """Toggle help filtering based on permissions"""
         if ctx.invoked_subcommand is None:
             await send_cmd_help(ctx)
             return
 
     @hidehelp.command("on")
     async def turn_on(self):
-        """Turn on help filtering"""
+        """Turn help filtering on"""
         if self._is_on():
             await self.bot.say("Help filtering already on")
         else:
@@ -966,7 +965,7 @@ class Permissions:
 
     @hidehelp.command(name="off")
     async def turn_off(self):
-        """Turn off help filtering"""
+        """Turn help filtering off"""
         if self._is_on():
             self.bot.formatter = commands.HelpFormatter()
             await self.bot.say("Help filtering turned off")
