@@ -778,7 +778,12 @@ class Permissions:
         role = self._get_role(server.roles, role)
         await self._set_permission(command_obj, server, role=role, allow=False)
 
-        await self.bot.say("Role {} denied use of {}.".format(role.name,
+        if role.name.startswith('@'):
+            _rolename = role.name[1:]
+        else:
+            _rolename = role.name
+
+        await self.bot.say("Role {} denied use of {}.".format(_rolename,
                                                               command))
 
     @role.command(pass_context=True, name="reset")
