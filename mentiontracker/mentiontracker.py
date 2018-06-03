@@ -62,6 +62,7 @@ class MentionTracker:
         s = ctx.message.server
         if user.id in self.mail:
             del self.mail[user.id]
+            fileIO("data/mentiontracker/mail.json", "save", self.mail)
             await self.bot.say("You will stop receiving mention mail.")
         else:
             await self.bot.say("You haven't registered yet, try {}.".format(
