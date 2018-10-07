@@ -7,8 +7,9 @@ from discord.ext import commands
 
 import tabulate
 
+BaseCog = getattr(commands, "Cog", object)
 
-class Logger:
+class Logger(BaseCog):
     LOGGER_CATEGORY = "LOGGER"
     def __init__(self, bot):
         self.bot = bot
