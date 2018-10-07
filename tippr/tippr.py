@@ -11,8 +11,9 @@ from . import wallet_node
 
 _ = i18n.CogI18n("Tippr", __file__)
 
+BaseCog = getattr(commands, "Cog", object)
 
-class Tippr:
+class Tippr(BaseCog):
     def __init__(self, loop: asyncio.BaseEventLoop):
         self.config = Config.get_conf(self, 879834294283290, force_registration=True)
         self.config.register_global(
