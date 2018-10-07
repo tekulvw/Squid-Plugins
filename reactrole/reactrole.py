@@ -7,8 +7,9 @@ from discord.ext import commands
 from redbot.core import Config, checks
 from redbot.core.bot import Red
 
+BaseCog = getattr(commands, "Cog", object)
 
-class ReactRoleCombo:
+class ReactRoleCombo(BaseCog):
     def __init__(self, message_id, role_id, emoji=None, is_custom_emoji=False):
         self.message_id = message_id
         self.role_id = role_id
