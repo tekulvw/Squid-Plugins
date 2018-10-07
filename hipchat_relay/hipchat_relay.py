@@ -8,8 +8,10 @@ from redbot.core import Config
 
 log = logging.getLogger("red.squid.hipchat")
 
+BaseCog = getattr(commands, "Cog", object)
 
-class HipchatRelay:
+
+class HipchatRelay(BaseCog):
     def __init__(self):
         self.conf = Config.get_conf(self, 6133, force_registration=True)
 
