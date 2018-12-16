@@ -283,12 +283,12 @@ class ReactRole:
 
         await ctx.send("Reaction removed.")
 
-    async def on_raw_reaction_add(self, emoji: discord.PartialReactionEmoji,
+    async def on_raw_reaction_add(self, emoji: discord.PartialEmoji,
                                   message_id: int, channel_id: int, user_id: int):
         """
         Event handler for long term reaction watching.
 
-        :param discord.PartialReactionEmoji emoji:
+        :param discord.PartialEmoji emoji:
         :param int message_id:
         :param int channel_id:
         :param int user_id:
@@ -322,12 +322,12 @@ class ReactRole:
         except discord.Forbidden:
             pass
 
-    async def on_raw_reaction_remove(self, emoji: discord.PartialReactionEmoji,
+    async def on_raw_reaction_remove(self, emoji: discord.PartialEmoji,
                                      message_id: int, channel_id: int, user_id: int):
         """
         Event handler for long term reaction watching.
 
-        :param discord.PartialReactionEmoji emoji:
+        :param discord.PartialEmoji emoji:
         :param int message_id:
         :param int channel_id:
         :param int user_id:
