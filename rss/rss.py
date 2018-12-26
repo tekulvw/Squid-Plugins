@@ -16,7 +16,13 @@ try:
 except:
     feedparser = None
 
-log = logging.getLogger("red.rss")
+try:
+    from bs4 import BeautifulSoup
+except:
+    BeautifulSoup = None
+
+
+log = logging.getLogger("data/RSS/feeds.log")
 
 
 class Settings(object):
@@ -64,6 +70,32 @@ class Feeds(object):
         self.save_feeds()
         return True
 
+    async def edit_filter(self, ctx, name, filters):
+        server = ctx.message.server.id
+        channel = ctx.message.channel.id
+        if server not in self.feeds:
+            return False
+        if channel not in self.feeds[server]:
+            return False
+        if name not in self.feeds[server][channel]:
+            return False
+        self.feeds[server][channel][name]['filter'] = filters.split(',')
+        self.save_feeds()
+        return True
+
+    async def reset_filter(self, ctx, name):
+        server = ctx.message.server.id
+        channel = ctx.message.channel.id
+        if server not in self.feeds:
+            return False
+        if channel not in self.feeds[server]:
+            return False
+        if name not in self.feeds[server][channel]:
+            return False
+        self.feeds[server][channel][name]['filter'] = [""]
+        self.save_feeds()
+        return True
+
     def add_feed(self, ctx, name, url):
         server = ctx.message.server.id
         channel = ctx.message.channel.id
@@ -75,6 +107,7 @@ class Feeds(object):
         self.feeds[server][channel][name]['url'] = url
         self.feeds[server][channel][name]['last'] = ""
         self.feeds[server][channel][name]['template'] = "$name:\n$title"
+        self.feeds[server][channel][name]['filter'] = [""]
         self.save_feeds()
 
     async def delete_feed(self, ctx, name):
@@ -186,6 +219,29 @@ class RSS(object):
         else:
             await self.bot.say('Feed not found!')
 
+    @rss.command(pass_context=True, name="filter")
+    async def _rss_filter(self, ctx, feed_name: str, *, filters: str):
+        ("""Set a filter for the feed alert
+        set a comma-seperated list of keywords for filterung feeds.
+
+        Negation is done by a leading '!'
+        Example:
+        [p]rss filter rss_name news,!computer,games""")
+        success = await self.feeds.edit_filter(ctx, feed_name, filters)
+        if success:
+            await self.bot.say("Filter added successfully.")
+        else:
+            await self.bot.say('Feed not found!')
+
+    @rss.command(pass_context=True, name="filter_reset")
+    async def _rss_filter_reset(self, ctx, feed_name: str):
+        """Disables filtering"""
+        success = await self.feeds.reset_filter(ctx, feed_name)
+        if success:
+            await self.bot.say("Filter reseted successfully.")
+        else:
+            await self.bot.say('Feed not found!')
+
     @rss.command(pass_context=True, name="force")
     async def _rss_force(self, ctx, feed_name: str):
         """Forces a feed alert"""
@@ -207,8 +263,10 @@ class RSS(object):
 
         message = await self.get_current_feed(server.id, channel.id,
                                               feed_name, items)
-
-        await self.bot.say(message)
+        if message is not None:
+            await self.bot.say(message)
+        else:
+            await self.bot.say("Filter didn\'t match.")
 
     @rss.command(pass_context=True, name="remove")
     async def _rss_remove(self, ctx, name: str):
@@ -224,6 +282,14 @@ class RSS(object):
         url = items['url']
         last_title = items['last']
         template = items['template']
+
+        filters_contains = list()
+        filters_containsnot = list()
+        for i in list(items['filter']):
+            if i.startswith('!'):
+                filters_containsnot.append(i[1:])
+            else:
+                filters_contains.append(i)
         message = None
 
         try:
@@ -234,6 +300,7 @@ class RSS(object):
             return None
 
         rss = feedparser.parse(html)
+        rss.entries[0]['description'] = BeautifulSoup(rss.entries[0]['description'].replace('<br>', '\n'), 'html5lib').get_text()
 
         if rss.bozo:
             log.debug("Feed at url below is bad.\n\t".format(url))
@@ -251,13 +318,24 @@ class RSS(object):
                 name, server))
             latest = rss.entries[0]
             to_fill = string.Template(template)
-            message = to_fill.safe_substitute(
-                name=bold(name),
-                **latest
-            )
+
+            filter_positive = True
+            filter_negative = True
+            if filters_contains:
+                if not any(word in curr_title for word in filters_contains):
+                    filter_positive = False
+            if filters_containsnot:
+                if any(word in curr_title for word in filters_containsnot):
+                    filter_negative = False
+            if filter_positive and filter_negative:
+                message = to_fill.safe_substitute(
+                    name=bold(name),
+                    **latest
+                )
 
             self.feeds.update_time(
                 server, chan_id, name, curr_title)
+
         return message
 
     async def read_feeds(self):
@@ -282,6 +360,8 @@ class RSS(object):
 def setup(bot):
     if feedparser is None:
         raise NameError("You need to run `pip3 install feedparser`")
+    if BeautifulSoup is None:
+        raise NameError("You need to run `pip3 install beautifulsoup4`")
     n = RSS(bot)
     bot.add_cog(n)
     bot.loop.create_task(n.read_feeds())
