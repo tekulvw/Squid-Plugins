@@ -93,8 +93,7 @@ class Logger(commands.Cog):
         """
         Commands for modifying logging levels.
         """
-        if ctx.invoked_subcommand is None:
-            await ctx.send_help()
+        pass
 
     @logger.command(name='list')
     async def logger_list(self, ctx):
