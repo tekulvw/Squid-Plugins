@@ -1,0 +1,7 @@
+{
+  "author": ["tekulvw"],
+  "description": "Utility to manage python logger levels.",
+  "bot_version": [3, 0, 1],
+  "requirements": ["tabulate"],
+  "tags": ["utility", "log", "logger"]
+}
