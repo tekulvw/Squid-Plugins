@@ -103,7 +103,8 @@ class Logger(commands.Cog):
         data = self._loggers_with_levels()
         headers = ['Logger', 'Level']
         msg = tabulate.tabulate(data, headers, tablefmt='psql')
-        await ctx.send(chat_formatting.box(msg))
+        for page in chat_formatting.pagify(msg, delims="\n", shorten_by=8):
+            await ctx.send(chat_formatting.box(page))
 
     @logger.command(name='setlevel')
     async def logger_setlevel(self, ctx, name: str, level: str):
