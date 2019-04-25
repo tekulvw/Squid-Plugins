@@ -10,6 +10,7 @@ from redbot.core.utils import box
 # The function used to calculate loss is as follows:
 #   PERCENT = max_percent * ((2^difficulty)^random() - 1) / ((2^difficulty) - 1)
 ###
+from redbot.core.utils.chat_formatting import pagify
 
 
 class BankVampire(commands.Cog):
@@ -240,7 +241,8 @@ class BankVampire(commands.Cog):
         output_msg = "\n".join(output_list)
         output_msg = "Vamp Attack Report:\n" + output_msg
 
-        await report_channel.send(box(output_msg, lang="diff"))
+        for page in pagify(output_msg):
+            await report_channel.send(box(page, lang="diff"))
 
     async def attack(self):
         if await bank.is_global():
