@@ -134,6 +134,15 @@ class BankVampire(commands.Cog):
         else:
             await ctx.send("The vampires have evaded your attempts to shut them down.")
 
+        loss_chance = random.random()
+        if chance < 0.99 and loss_chance <= 0.05:
+            balance = await bank.get_balance(ctx.author)
+            half = balance // 2
+            await bank.set_balance(ctx.author, half)
+            await ctx.send(f"The vampires took {half} in retribution for the failed attempt.")
+        elif loss_chance > 0.05:
+            await ctx.send("You escaped unscathed.")
+
     @vampset.command(name="channel", no_pm=True)
     async def vampset_channel(self, ctx, channel: commands.TextChannelConverter = None):
         """
