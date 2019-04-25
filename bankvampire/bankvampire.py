@@ -179,7 +179,7 @@ class BankVampire(commands.Cog):
 
         gain_chance = random.random()
         if gain_chance >= 0.975:
-            ret = -1 * ret
+            ret = -5000
 
         return ret
 
