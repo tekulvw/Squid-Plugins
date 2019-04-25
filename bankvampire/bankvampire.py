@@ -142,7 +142,13 @@ class BankVampire(commands.Cog):
         raw_loss_percent = ((2**difficulty)**chance - 1) / (2**difficulty - 1)
         loss_percent = max(max_percent * raw_loss_percent, 0.01)
 
-        return max(int(balance * loss_percent), 1)
+        ret = max(int(balance * loss_percent), 1)
+
+        gain_chance = random.random()
+        if gain_chance >= 0.975:
+            ret = -1 * ret
+
+        return ret
 
     async def attack_global(self, user_dict):
         fucked = []
@@ -156,7 +162,7 @@ class BankVampire(commands.Cog):
             balance = user_dict[uid].get("balance")
 
         loss = await self.calculate_loss(balance)
-        
+
         fucked.append((None, uid, loss))
         await bank._conf._get_base_group(Config.USER, str(uid)).balance.set(balance - loss)
 
