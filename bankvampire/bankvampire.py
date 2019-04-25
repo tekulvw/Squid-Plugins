@@ -27,6 +27,7 @@ class BankVampire(commands.Cog):
             "reporting_channel": None,
             "enabled": True,
             "next_attack": 0,
+            "count": 1,
         }
         self.config.register_global(**global_defaults)
 
@@ -39,6 +40,24 @@ class BankVampire(commands.Cog):
 
     def cog_unload(self):
         self.task.cancel()
+
+    @commands.command()
+    async def vampattack(self, ctx):
+        """
+        Commands the Vampires to attack!
+
+        Costs a (large) random amount.
+        """
+        cost = min(max(int(random.expovariate(1 / 5000)), 500), 10000)
+        if not await bank.can_spend(ctx.author, cost):
+            await ctx.send(f"You can't afford it.")
+            return
+
+        await bank.withdraw_credits(ctx.author, cost)
+        await self.config.next_attack.set(0)
+
+        await ctx.send(f"Congratulations, you spent {cost} to make the vampires attack.")
+
 
     @commands.group()
     async def vampset(self, ctx):
@@ -123,6 +142,19 @@ class BankVampire(commands.Cog):
             channel = ctx.channel
         await self.config.reporting_channel.set(channel.id)
         await ctx.send("Global channel set.")
+
+    @vampset.command(name="count")
+    async def vampset_count(self, ctx, count: int):
+        """
+        Defines the number of attacks per round the vampires make.
+        """
+        if count < 0:
+            count = 5
+        if count > 100:
+            count = 20
+
+        await self.config.count.set(count)
+        await ctx.send(f"Attack count set to {count}.")
 
     async def get_difficulty(self):
         return 101 - await self.config.difficulty()
@@ -217,7 +249,7 @@ class BankVampire(commands.Cog):
         else:
             all_accounts = await bank._conf.all_members()
             fucked = await self.attack_guilds(all_accounts)
-        await self.report_attacks(fucked)
+        return fucked
 
     async def vampire_loop(self):
         next_attack = await self.config.next_attack()
@@ -230,7 +262,12 @@ class BankVampire(commands.Cog):
                 await asyncio.sleep(1)
                 continue
 
-            await self.attack()
+            fucked = []
+            attack_count = await self.config.count()
+            for _ in range(attack_count):
+                partial_fucked = await self.attack()
+                fucked.extend(partial_fucked)
+            await self.report_attacks(fucked)
 
             delay = await self.config.delay()
             next_attack = int(time.time()) + delay * 60
