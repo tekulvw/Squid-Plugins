@@ -44,6 +44,7 @@ class BankVampire(commands.Cog):
             "hit_count": 0,
             "loss_total": 0,
             "gain_total": 0,
+            "spent": 0,
         }
         self.config.register_user(**user_defaults)
 
@@ -68,6 +69,8 @@ class BankVampire(commands.Cog):
             return
 
         await bank.withdraw_credits(ctx.author, cost)
+        spent = cost + await self.config.user(ctx.author).spent()
+        await self.config.user(ctx.author).spent.set(spent)
         await self.config.next_attack.set(0)
 
         await ctx.send(f"Congratulations, you spent {cost} to make the vampires attack.")
