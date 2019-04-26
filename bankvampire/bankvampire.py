@@ -28,7 +28,6 @@ class BankVampire(commands.Cog):
             "max_delay": 180,  # minutes
             "difficulty": 81,  # 1 to 100
             "max_percent": 5,
-            "reporting_channel": None,
             "enabled": True,
             "next_attack": 0,
             "count": 1,
@@ -177,10 +176,16 @@ class BankVampire(commands.Cog):
         """
         Sets the global reporting channel. Defaults to this one.
         """
+        curr_chan = await self.config.guild(ctx.guild).reporting_channel()
         if channel is None:
+            if curr_chan is not None:
+                await self.config.guild(ctx.guild).clear()
+                await ctx.send("Reporting channel cleared.")
+                return
             channel = ctx.channel
-        await self.config.reporting_channel.set(channel.id)
-        await ctx.send("Global channel set.")
+
+        await self.config.guild(channel.guild).reporting_channel.set(channel.id)
+        await ctx.send("Reporting channel set.")
 
     @vampset.command(name="count")
     async def vampset_count(self, ctx, count: int):
@@ -289,11 +294,6 @@ class BankVampire(commands.Cog):
         if len(fucked_list) == 0:
             return
 
-        global_report_id = await self.config.reporting_channel()
-        report_channel = self.bot.get_channel(global_report_id)
-        if report_channel is None:
-            return
-
         output_list = []
         for gid, user, loss in fucked_list:
             msg = "+ "
@@ -307,8 +307,15 @@ class BankVampire(commands.Cog):
         output_msg = "\n".join(output_list)
         output_msg = "Vamp Attack Report:\n" + output_msg
 
-        for page in pagify(output_msg):
-            await report_channel.send(box(page, lang="diff"))
+        async def report(report_channel):
+            for page in pagify(output_msg):
+                await report_channel.send(box(page, lang="diff"))
+
+        for g in self.bot.guilds:
+            chanid = await self.config.guild(g).reporting_channel()
+            channel = self.bot.get_channel(chanid)
+            if channel is not None:
+                self.bot.loop.create_task(report(channel))
 
     async def update_stats(self, user, loss):
         hit_count = 1 + await self.config.user(user).hit_count()
