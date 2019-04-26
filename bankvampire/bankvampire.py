@@ -52,6 +52,9 @@ class BankVampire(commands.Cog):
     def cog_unload(self):
         self.task.cancel()
 
+    def __unload(self):
+        self.task.cancel()
+
     @commands.command()
     async def vampattack(self, ctx):
         """
