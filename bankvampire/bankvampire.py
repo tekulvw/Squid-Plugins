@@ -82,10 +82,11 @@ class BankVampire(commands.Cog):
         hit_count = await self.config.user(user).hit_count()
         loss_total = await self.config.user(user).loss_total()
         gain_total = await self.config.user(user).gain_total()
+        spent = await self.config.user(user).spent()
 
         await ctx.send(
             f"Over the course of your short life you've been attacked {hit_count} times, lost {loss_total}"
-            f" and gained {gain_total}."
+            f" and gained {gain_total}. And sadly, you've spent {spent} to attack others. Peasant."
         )
 
     @commands.group()
