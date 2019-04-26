@@ -379,5 +379,7 @@ class BankVampire(commands.Cog):
         while True:
             try:
                 await self.vampire_loop()
+            except asyncio.CancelledError:
+                raise
             except:
                 log.exception("Vampire loop died, restarting.")
