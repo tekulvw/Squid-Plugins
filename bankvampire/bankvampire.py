@@ -1,6 +1,7 @@
 import asyncio
 import random
 import time
+import logging
 
 from redbot.core import bank
 from redbot.core import commands, Config
@@ -11,6 +12,8 @@ from redbot.core.utils import box
 #   PERCENT = max_percent * ((2^difficulty)^random() - 1) / ((2^difficulty) - 1)
 ###
 from redbot.core.utils.chat_formatting import pagify
+
+log = logging.getLogger("red.cogs.bankvampire")
 
 
 class BankVampire(commands.Cog):
@@ -37,7 +40,14 @@ class BankVampire(commands.Cog):
         }
         self.config.register_guild(**guild_defaults)
 
-        self.task = self.bot.loop.create_task(self.vampire_loop())
+        user_defaults = {
+            "hit_count": 0,
+            "loss_total": 0,
+            "gain_total": 0,
+        }
+        self.config.register_user(**user_defaults)
+
+        self.task = self.bot.loop.create_task(self.safety_loop())
 
     def cog_unload(self):
         self.task.cancel()
@@ -59,6 +69,18 @@ class BankVampire(commands.Cog):
 
         await ctx.send(f"Congratulations, you spent {cost} to make the vampires attack.")
 
+    @commands.command()
+    async def vampstat(self, ctx, user: commands.UserConverter = None):
+        if user is None:
+            user = ctx.author
+        hit_count = await self.config.user(user).hit_count()
+        loss_total = await self.config.user(user).loss_total()
+        gain_total = await self.config.user(user).gain_total()
+
+        await ctx.send(
+            f"Over the course of your short life you've been attacked {hit_count} times, lost {loss_total}"
+            f" and gained {gain_total}."
+        )
 
     @commands.group()
     async def vampset(self, ctx):
@@ -203,9 +225,17 @@ class BankVampire(commands.Cog):
             uid = random.choice(list(user_dict.keys()))
             balance = user_dict[uid].get("balance")
 
+        user = self.bot.get_user(uid)
+        found = False
+        if user is not None:
+            uid = user
+            found = True
+
         loss = await self.calculate_loss(balance)
 
         fucked.append((None, uid, loss))
+        if found:
+            uid = uid.id
         await bank._conf._get_base_group(Config.USER, str(uid)).balance.set(balance - loss)
 
         return fucked
@@ -222,9 +252,18 @@ class BankVampire(commands.Cog):
                 uid = random.choice(list(user_dict.keys()))
                 balance = user_dict[uid].get("balance")
 
+            user = self.bot.get_user(uid)
+            found = False
+            if user is not None:
+                uid = user
+                found = True
+
             loss = await self.calculate_loss(balance)
 
             fucked.append((guildid, uid, loss))
+
+            if found:
+                uid = uid.id
             await (
                 bank._conf._get_base_group(Config.MEMBER, str(guildid), str(uid))
                 .balance.set(balance - loss)
@@ -241,17 +280,32 @@ class BankVampire(commands.Cog):
             return
 
         output_list = []
-        for gid, uid, loss in fucked_list:
+        for gid, user, loss in fucked_list:
             msg = "+ "
             if gid is not None:
                 msg += f"GUILD: {gid}, "
-            msg += f"USER: {uid}: lost {loss}."
+            msg += f"USER: {user}: lost {loss}."
             output_list.append(msg)
+
+            if hasattr(user, "id"):
+                await self.update_stats(user, loss)
         output_msg = "\n".join(output_list)
         output_msg = "Vamp Attack Report:\n" + output_msg
 
         for page in pagify(output_msg):
             await report_channel.send(box(page, lang="diff"))
+
+    async def update_stats(self, user, loss):
+        hit_count = 1 + await self.config.user(user).hit_count()
+        await self.config.user(user).hit_count.set(hit_count)
+
+        if loss > 0:
+            loss = loss + await self.config.user(user).loss_total()
+            await self.config.user(user).loss_total.set(loss)
+        else:
+            gain = abs(loss)
+            gain = gain + await self.config.user(user).gain_total()
+            await self.config.user(user).gain_total.set(gain)
 
     async def attack(self):
         if await bank.is_global():
@@ -261,6 +315,30 @@ class BankVampire(commands.Cog):
             all_accounts = await bank._conf.all_members()
             fucked = await self.attack_guilds(all_accounts)
         return fucked
+
+    def reduce_fucked(self, fucked):
+        is_global = True
+        mid = {}
+        for gid, user, loss in fucked:
+            if gid is not None:
+                is_global = False
+            if (gid, user) not in mid:
+                mid[(gid, user)] = 0
+            mid[(gid, user)] += loss
+
+        if is_global:
+            ret = [(gid, user, loss) for (gid, user), loss in mid.items()]
+            return sorted(ret, key=lambda x: x[2], reverse=True)
+        else:
+            mid2 = {}
+            for (gid, user), loss in mid.items():
+                if gid not in mid2:
+                    mid2[gid] = []
+                mid2[gid].append((user, loss))
+
+            for gid in mid2.keys():
+                mid2[gid] = sorted(mid2[gid], key=lambda x: x[1], reverse=True)
+            return [(gid, user, loss) for gid, userloss_list in mid2.items() for user, loss in userloss_list]
 
     async def vampire_loop(self):
         next_attack = await self.config.next_attack()
@@ -278,8 +356,17 @@ class BankVampire(commands.Cog):
             for _ in range(attack_count):
                 partial_fucked = await self.attack()
                 fucked.extend(partial_fucked)
-            await self.report_attacks(fucked)
+
+            reduced_fucked = self.reduce_fucked(fucked)
+            await self.report_attacks(reduced_fucked)
 
             delay = await self.config.delay()
             next_attack = int(time.time()) + delay * 60
             await self.config.next_attack.set(next_attack)
+
+    async def safety_loop(self):
+        while True:
+            try:
+                await self.vampire_loop()
+            except:
+                log.exception("Vampire loop died, restarting.")
