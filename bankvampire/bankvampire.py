@@ -197,12 +197,15 @@ class BankVampire(commands.Cog):
     async def set_difficulty(self, difficulty):
         await self.config.difficulty.set(difficulty)
 
-    async def calculate_loss(self, balance: int):
+    async def calculate_loss(self, balance: int, is_slime: bool = False):
         """
         Get rekt kiddies.
         """
         max_percent = await self.config.max_percent() / 100
         difficulty = await self.get_difficulty()
+
+        if is_slime:
+            max_percent = 0.25
 
         chance = random.random()
 
@@ -228,13 +231,18 @@ class BankVampire(commands.Cog):
             uid = random.choice(list(user_dict.keys()))
             balance = user_dict[uid].get("balance")
 
+        is_slime = False
+        if str(uid) == "204027971516891136":
+            # Get fucked slime
+            is_slime = True
+
         user = self.bot.get_user(uid)
         found = False
         if user is not None:
             uid = user
             found = True
 
-        loss = await self.calculate_loss(balance)
+        loss = await self.calculate_loss(balance, is_slime=is_slime)
 
         fucked.append((None, uid, loss))
         if found:
