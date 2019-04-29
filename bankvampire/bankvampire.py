@@ -1,4 +1,5 @@
 import asyncio
+import math
 import random
 import time
 import logging
@@ -23,10 +24,10 @@ class BankVampire(commands.Cog):
         self.bot = bot
         self.config = Config.get_conf(self, 6133, force_registration=True)
         global_defaults = {
-            "min_delay": 30,  # minutes
-            "delay": 60,  # minutes
+            "min_delay": 15,  # minutes
+            "delay": 30,  # minutes
             "max_delay": 180,  # minutes
-            "difficulty": 81,  # 1 to 100
+            "wrecklevel": 500_000,
             "max_percent": 5,
             "enabled": True,
             "next_attack": 0,
@@ -97,33 +98,28 @@ class BankVampire(commands.Cog):
         """
         Sets the percentage of a users balance they could lose.
 
-        This value should be between 0 and 100.
-        Difficulty affects the chance they lose close to this percent.
+        This value should be between 0 and 15.
         """
         if percent <= 0:
-            percent = 5
-        elif percent >= 100:
-            percent = 5
+            percent = 1
+        elif percent >= 15:
+            percent = 10
 
         await self.config.max_percent.set(percent)
         await ctx.send(f"Vamp percent set to {percent}%.")
 
-    @vampset.command(name="difficulty")
-    async def vampset_difficulty(self, ctx, difficulty: int):
+    @vampset.command(name="wrecklevel")
+    async def vampset_wrecklevel(self, ctx, amount: int):
         """
-        Sets the difficulty.
+        Sets the minimum balance to trigger a much more aggressive loss function.
 
-        The higher the difficulty the more likely a user is to lose a higher
-        percentage of their balance.
-        This should be between 1 and 100.
+        Default is 500K. Be careful with this.
         """
-        if difficulty < 1:
-            difficulty = 50
-        elif difficulty > 100:
-            difficulty = 100
+        if amount < 100_000:
+            amount = 500_000
 
-        await self.set_difficulty(difficulty)
-        await ctx.send(f"Difficulty set to {difficulty}.")
+        await self.config.wrecklevel.set(amount)
+        await ctx.send(f"Difficulty set to {amount}.")
 
     @vampset.command(name="delay")
     async def vampset_delay(self, ctx, delay: int):
@@ -200,26 +196,25 @@ class BankVampire(commands.Cog):
         await self.config.count.set(count)
         await ctx.send(f"Attack count set to {count}.")
 
-    async def get_difficulty(self):
-        return 101 - await self.config.difficulty()
-
-    async def set_difficulty(self, difficulty):
-        await self.config.difficulty.set(difficulty)
-
     async def calculate_loss(self, balance: int, is_slime: bool = False):
         """
         Get rekt kiddies.
         """
         max_percent = await self.config.max_percent() / 100
-        difficulty = await self.get_difficulty()
+        wrecking_min = await self.config.wrecklevel()
 
         if is_slime:
             max_percent = 0.25
 
         chance = random.random()
 
-        raw_loss_percent = ((2**difficulty)**chance - 1) / (2**difficulty - 1)
-        loss_percent = max(max_percent * raw_loss_percent, 0.01)
+        # raw_loss_percent = ((2**difficulty)**chance - 1) / (2**difficulty - 1)
+        if balance <= wrecking_min:
+            raw_loss_percent = 0.2 + math.exp(3 * (chance - 0.803))
+        else:
+            raw_loss_percent = 3 + math.sin(3 * math.pi * chance)
+
+        loss_percent = min(max(max_percent * raw_loss_percent, 0.0025), 0.5)
 
         ret = max(int(balance * loss_percent), 1)
 
