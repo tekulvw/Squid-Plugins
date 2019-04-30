@@ -48,6 +48,8 @@ class BankVampire(commands.Cog):
         }
         self.config.register_user(**user_defaults)
 
+        self.attack_origin = None
+
         self.task = self.bot.loop.create_task(self.safety_loop())
 
     def cog_unload(self):
@@ -69,6 +71,13 @@ class BankVampire(commands.Cog):
             return
 
         await bank.withdraw_credits(ctx.author, cost)
+
+        if self.attack_origin is None:
+            if ctx.guild is not None:
+                self.attack_origin = f"{ctx.author} on {ctx.guild}"
+            else:
+                self.attack_origin = ctx.author
+
         spent = cost + await self.config.user(ctx.author).spent()
         await self.config.user(ctx.author).spent.set(spent)
         await self.config.next_attack.set(0)
@@ -300,7 +309,8 @@ class BankVampire(commands.Cog):
             if hasattr(user, "id"):
                 await self.update_stats(user, loss)
         output_msg = "\n".join(output_list)
-        output_msg = "Vamp Attack Report:\n" + output_msg
+        output_msg = f"Vamp Attack by {self.attack_origin} Report:\n" + output_msg
+        self.attack_origin = None
 
         async def report(report_channel):
             for page in pagify(output_msg):
@@ -363,6 +373,9 @@ class BankVampire(commands.Cog):
             while time.time() < next_attack:
                 await asyncio.sleep(1)
                 next_attack = await self.config.next_attack()
+
+            if self.attack_origin is None:
+                self.attack_origin = "Random Vampires"
 
             if not await self.config.enabled():
                 await asyncio.sleep(1)
