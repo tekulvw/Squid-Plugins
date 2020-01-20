@@ -17,6 +17,9 @@ class Logger(commands.Cog):
             "override": None,
             "original": None,
         }
+
+        self.conf.init_custom(self.LOGGER_CATEGORY, 1)
+
         self.conf.register_custom(
             self.LOGGER_CATEGORY,
             **logger_defaults
@@ -41,7 +44,7 @@ class Logger(commands.Cog):
         }
 
     async def refresh_levels(self):
-        all_data = await self.conf._all_from_scope(self.LOGGER_CATEGORY)
+        all_data = await self.conf.custom(self.LOGGER_CATEGORY).all()
         for name, data in all_data.items():
             logger = logging.getLogger(name)
             level = data['override']
@@ -108,6 +111,9 @@ class Logger(commands.Cog):
 
     @logger.command(name='setlevel')
     async def logger_setlevel(self, ctx, name: str, level: str):
+        """
+        Set a specific log level.
+        """
         curr_log = self._get_logger(name)
         if curr_log is None:
             await ctx.send("That logger is either unaccessible or does not exist.")
@@ -120,3 +126,4 @@ class Logger(commands.Cog):
             return
 
         await self._set_level(curr_log, to_level)
+        await ctx.tick()
