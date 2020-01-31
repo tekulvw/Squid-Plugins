@@ -6,7 +6,7 @@ import logging
 
 from redbot.core import bank
 from redbot.core import commands, Config
-from redbot.core.utils import box
+from redbot.core.utils.chat_formatting import box
 
 ###
 # The function used to calculate loss is as follows:
@@ -86,6 +86,9 @@ class BankVampire(commands.Cog):
 
     @commands.command()
     async def vampstat(self, ctx, user: commands.UserConverter = None):
+        """
+        Check the vampire stats for yourself or others.
+        """
         if user is None:
             user = ctx.author
         hit_count = await self.config.user(user).hit_count()
@@ -100,6 +103,9 @@ class BankVampire(commands.Cog):
 
     @commands.group()
     async def vampset(self, ctx):
+        """
+        Settings for the vampires.
+        """
         pass
 
     @vampset.command(name="percent")
@@ -179,7 +185,9 @@ class BankVampire(commands.Cog):
     @vampset.command(name="channel", no_pm=True)
     async def vampset_channel(self, ctx, channel: commands.TextChannelConverter = None):
         """
-        Sets the global reporting channel. Defaults to this one.
+        Sets the reporting channel for the vampire attacks. Defaults to this one.
+
+        Use this command with no channel specified to clear the saved channel for the guild.
         """
         curr_chan = await self.config.guild(ctx.guild).reporting_channel()
         if channel is None:
