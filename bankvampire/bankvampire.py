@@ -268,7 +268,7 @@ class BankVampire(commands.Cog):
         fucked.append((None, uid, loss))
         if found:
             uid = uid.id
-        await bank._conf._get_base_group(Config.USER, str(uid)).balance.set(balance - loss)
+        await bank._config._get_base_group(Config.USER, str(uid)).balance.set(balance - loss)
 
         return fucked
 
@@ -297,7 +297,7 @@ class BankVampire(commands.Cog):
             if found:
                 uid = uid.id
             await (
-                bank._conf._get_base_group(Config.MEMBER, str(guildid), str(uid))
+                bank._config._get_base_group(Config.MEMBER, str(guildid), str(uid))
                 .balance.set(balance - loss)
             )
         return fucked
@@ -344,10 +344,10 @@ class BankVampire(commands.Cog):
 
     async def attack(self):
         if await bank.is_global():
-            all_accounts = await bank._conf.all_users()
+            all_accounts = await bank._config.all_users()
             fucked = await self.attack_global(all_accounts)
         else:
-            all_accounts = await bank._conf.all_members()
+            all_accounts = await bank._config.all_members()
             fucked = await self.attack_guilds(all_accounts)
         return fucked
 
