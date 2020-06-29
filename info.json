@@ -1,5 +1,7 @@
-{"NAME": "Squid Plugins",
-"AUTHOR" : "Will (tekulvw)",
-"SHORT": "Growing collection of useful plugins",
-"DESCRIPTION" : "Message from Squid:\n\nHi there. I see you've installed my repo! Congratulations! I'm glad you've made it this far. If, throughout your journey, you happen to find any problems with any Squid cogs, please feel free to jump in my support server (link below). Also, if you really like my cogs and would like to contribute to further development, please consider becoming a patron for my owner (link also below). Thanks and have fun!\n\nSupport: <http://discord.me/Squid>\nPatron: <https://www.patreon.com/tekulvw>"
+{
+	"author": ["Will (tekulvw)"],
+	"install_msg": "Message from Squid:\n\nHi there. I see you've installed my repo! Congratulations! I'm glad you've made it this far. If, throughout your journey, you happen to find any problems with any Squid cogs, please feel free to jump into Red's 3rd party cog server (link below) and head over to #support_squid. Also, if you really like my cogs and would like to contribute to further development, please consider becoming a patron for my owner (link also below). Thanks and have fun!\n\nSupport: <https://discord.gg/R24zY4G>\nPatron: <https://www.patreon.com/tekulvw>",
+	"name": "Squid Plugins V3",
+	"short": "Growing collection of useful plugins",
+	"description": "Squid Plugins for Red v3"
 }
