@@ -182,7 +182,8 @@ class BankVampire(commands.Cog):
         elif loss_chance > 0.05:
             await ctx.send("You escaped unscathed.")
 
-    @vampset.command(name="channel", no_pm=True)
+    @commands.guild_only()
+    @vampset.command(name="channel")
     async def vampset_channel(self, ctx, channel: commands.TextChannelConverter = None):
         """
         Sets the reporting channel for the vampire attacks. Defaults to this one.
