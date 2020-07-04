@@ -27,7 +27,7 @@ class BankVampire(commands.Cog):
             "min_delay": 15,  # minutes
             "delay": 30,  # minutes
             "max_delay": 180,  # minutes
-            "wrecklevel": 500_000,
+            "wrecklevel": 500000,
             "max_percent": 5,
             "enabled": True,
             "next_attack": 0,
@@ -130,8 +130,8 @@ class BankVampire(commands.Cog):
 
         Default is 500K. Be careful with this.
         """
-        if amount < 100_000:
-            amount = 500_000
+        if amount < 100000:
+            amount = 500000
 
         await self.config.wrecklevel.set(amount)
         await ctx.send(f"Difficulty set to {amount}.")
@@ -213,6 +213,39 @@ class BankVampire(commands.Cog):
 
         await self.config.count.set(count)
         await ctx.send(f"Attack count set to {count}.")
+
+    @vampset.command(name="settings")
+    async def vampset_settings(self, ctx):
+        """
+        Show the current settings.
+        """
+        guild_data = await self.config.guild(ctx.guild).all()
+        global_data = await self.config.all()
+
+        reporting_channel = (
+            self.bot.get_channel(guild_data["reporting_channel"]).name
+            if guild_data["reporting_channel"]
+            else "None"
+        )
+        delay = (
+            f"Min: {global_data['min_delay']} minutes / Max: {global_data['max_delay']} minutes"
+        )
+        wrecklevel = f"Users over {global_data['wrecklevel']} credits"
+        max_percent = f"{global_data['max_percent']}% of balance"
+        count_plural = "" if global_data["count"] == 1 else "s"
+        count = f"{global_data['count']} attack{count_plural}"
+        vamp_attacks = "Globally enabled" if global_data["enabled"] else "Globally disabled"
+
+        msg = (
+            f"[Vamp attacks]:                {vamp_attacks}\n"
+            f"[Vamp attack report channel]:  {reporting_channel}\n"
+            f"[Vamp attack count]:           {count}\n"
+            f"[Vamp attack max percentage]:  {max_percent}\n"
+            f"[Attacks are more cruel to]:   {wrecklevel}\n"
+            f"[Vamp attack delay]:           {delay}\n"
+        )
+
+        await ctx.send(box(msg, lang="ini"))
 
     async def calculate_loss(self, balance: int, is_slime: bool = False):
         """
@@ -298,8 +331,9 @@ class BankVampire(commands.Cog):
             if found:
                 uid = uid.id
             await (
-                bank._config._get_base_group(Config.MEMBER, str(guildid), str(uid))
-                .balance.set(balance - loss)
+                bank._config._get_base_group(Config.MEMBER, str(guildid), str(uid)).balance.set(
+                    balance - loss
+                )
             )
         return fucked
 
@@ -374,7 +408,11 @@ class BankVampire(commands.Cog):
 
             for gid in mid2.keys():
                 mid2[gid] = sorted(mid2[gid], key=lambda x: x[1], reverse=True)
-            return [(gid, user, loss) for gid, userloss_list in mid2.items() for user, loss in userloss_list]
+            return [
+                (gid, user, loss)
+                for gid, userloss_list in mid2.items()
+                for user, loss in userloss_list
+            ]
 
     async def vampire_loop(self):
         next_attack = await self.config.next_attack()
