@@ -1,0 +1,8 @@
+{
+	"author": ["Will (tekulvw)", "aikaterna"],
+	"description": "Save quotes and read them later",
+	"install_msg": "Thanks for installing. After the cog is loaded, use `[p]help Quotes` to see the available settings and commands.",
+	"short": "Save quotes and read them later",
+	"tags": ["quotes", "quote"],
+	"type": "COG"
+}
