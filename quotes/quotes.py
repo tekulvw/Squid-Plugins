@@ -1,6 +1,6 @@
 import discord
 from random import choice as randchoice
-from redbot.core import commands, Config
+from redbot.core import checks, commands, Config
 from redbot.core.utils.chat_formatting import box
 from redbot.core.utils.common_filters import filter_various_mentions
 
