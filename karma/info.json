@@ -3,7 +3,7 @@
 	"description": "Award people with karma points using ++ or --.\n\nExample: @\u200BWill ++",
 	"install_msg": "Thanks for installing. After the cog is loaded, use `[p]help Karma` to see the available settings and commands.",
 	"short": "Award people with karma points."
-    "requirements": ["tabulate"]
+    "requirements": ["tabulate"],
 	"tags": ["karma", "points", "rep"],
 	"type": "COG"
 }
