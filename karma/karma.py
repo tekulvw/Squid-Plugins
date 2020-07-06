@@ -150,5 +150,5 @@ class Karma(commands.Cog):
 
         if await self.config.guild(message.guild).respond_on_point():
             score = await self.config.user(target_user).score()
-            msg = f"{target_user.name} now has {score} points."
+            msg = f"{target_user.name} now has {score} Karma points."
             await message.channel.send(msg)
