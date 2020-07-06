@@ -136,7 +136,7 @@ class Karma(commands.Cog):
         reason = message.content[len(first_word) + 1 :].lstrip()
         target_user = message.mentions[0]
         if target_user == message.author:
-            if "++" or "--" in first_word:
+            if ("++" or "--") in first_word:
                 await message.channel.send("You can't modify your own rep, jackass.")
                 return
         if "++" in first_word:
