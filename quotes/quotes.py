@@ -1,7 +1,7 @@
 import discord
 from random import choice as randchoice
 from redbot.core import checks, commands, Config
-from redbot.core.utils.chat_formatting import box
+from redbot.core.utils.chat_formatting import box, pagify
 from redbot.core.utils.common_filters import filter_various_mentions
 
 
@@ -76,16 +76,9 @@ class Quotes(commands.Cog):
         if not quotes:
             await ctx.send("There are no saved quotes!")
             return
-        strbuffer = self._fmt_quotes(quotes).split("\n")
-        msg = ""
-        for line in strbuffer:
-            if len(msg) + len(line) + 1 < 2000:
-                msg += "\n" + line
-            else:
-                await self._try_to_dm(ctx, box(msg))
-                msg = line
-        if msg != "":
-            await self._try_to_dm(ctx, box(msg))
+        strbuffer = self._fmt_quotes(quotes)
+        for page in pagify(strbuffer, delims=["\n"], page_length=1980):
+            await self._try_to_dm(ctx, box(page))
 
     @commands.command()
     async def quote(self, ctx, *, message = None):
