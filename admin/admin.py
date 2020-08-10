@@ -124,11 +124,12 @@ class Admin:
         unparsed_roles = list(map(lambda r: r.strip(), rolelist.split(',')))
         parsed_roles = list(map(lambda r: self._role_from_string(server, r),
                                 unparsed_roles))
+        parsed_roles = [x for x in parsed_roles if x is not None]
         if len(unparsed_roles) != len(parsed_roles):
             not_found = set(unparsed_roles) - {r.name for r in parsed_roles}
             await self.bot.say(
-                "These roles were not found: {}\n\nPlease"
-                " try again.".format(not_found))
+                "These roles were not found: {}\nPlease"
+                " try again.".format(", ".join(not_found)))
         parsed_role_set = list({r.name for r in parsed_roles})
         self._set_selfroles(server, parsed_role_set)
         await self.bot.say(
