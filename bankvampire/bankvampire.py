@@ -3,6 +3,7 @@ import math
 import random
 import time
 import logging
+from typing import Literal
 
 from redbot.core import bank
 from redbot.core import commands, Config
@@ -57,6 +58,11 @@ class BankVampire(commands.Cog):
 
     def __unload(self):
         self.task.cancel()
+
+    async def red_delete_data_for_user(
+        self, *, requester: Literal["discord", "owner", "user", "user_strict"], user_id: int
+    ):
+        await self.config.user_from_id(user_id).clear()
 
     @commands.command()
     async def vampattack(self, ctx):

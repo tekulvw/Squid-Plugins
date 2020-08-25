@@ -43,6 +43,10 @@ class Logger(commands.Cog):
             logging.NOTSET: "Not set"
         }
 
+    async def red_delete_data_for_user(self, **kwargs):
+        """Nothing to delete."""
+        return
+
     async def refresh_levels(self):
         all_data = await self.conf.custom(self.LOGGER_CATEGORY).all()
         for name, data in all_data.items():

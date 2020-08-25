@@ -4,5 +4,6 @@
 	"install_msg": "Thanks for installing. After the cog is loaded, use `[p]help BankVampire` to see the available settings and commands.",
 	"short": "No credits are safe from the bankvampires.",
 	"tags": ["vampires", "bank", "credits"],
-	"type": "COG"
+	"type": "COG",
+    "end_user_data_statement": "This cog does store Discord IDs as needed for operation."
 }
