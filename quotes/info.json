@@ -5,5 +5,5 @@
 	"short": "Save quotes and read them later",
 	"tags": ["quotes", "quote"],
 	"type": "COG",
-	"end_user_data_statement": "This cog does not persistently store data or metadata about users."
+	"end_user_data_statement": "This cog may store information about a user for the purposes of relaying quotes. This data cannot be tracked for deletion and this cog will not remove content if requested."
 }

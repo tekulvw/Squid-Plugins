@@ -15,10 +15,6 @@ class Quotes(commands.Cog):
 
         self.config.register_guild(**default_guild)
 
-    async def red_delete_data_for_user(self, **kwargs):
-        """Nothing to delete."""
-        return
-
     @staticmethod
     def _get_random_quote(quotes: list):
         if len(quotes) == 0:
