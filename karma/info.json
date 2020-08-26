@@ -6,5 +6,5 @@
     "requirements": ["tabulate"],
     "tags": ["karma", "points", "rep"],
     "type": "COG",
-    "end_user_data_statement": "This cog does store Discord IDs as needed for operation."
+    "end_user_data_statement": "This cog stores discord IDs as needed for operation."
 }
