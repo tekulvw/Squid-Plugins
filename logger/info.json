@@ -3,5 +3,6 @@
   "description": "Utility to manage python logger levels.",
   "bot_version": [3, 0, 1],
   "requirements": ["tabulate"],
-  "tags": ["utility", "log", "logger"]
+  "tags": ["utility", "log", "logger"],
+  "end_user_data_statement": "This cog does not persistently store data or metadata about users."
 }

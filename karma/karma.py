@@ -1,5 +1,6 @@
 import discord
 import tabulate
+from typing import Literal
 from redbot.core import commands, checks, Config
 from redbot.core.utils.chat_formatting import box
 
@@ -22,6 +23,11 @@ class Karma(commands.Cog):
 
         self.config.register_guild(**default_guild)
         self.config.register_user(**default_user)
+
+    async def red_delete_data_for_user(
+        self, *, requester: Literal["discord", "owner", "user", "user_strict"], user_id: int
+    ):
+        await self.config.user_from_id(user_id).clear()
 
 
     async def _process_scores(self, member: discord.Member, score_to_add: int):
