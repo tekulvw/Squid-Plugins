@@ -5,5 +5,5 @@
 	"short": "No credits are safe from the bankvampires.",
 	"tags": ["vampires", "bank", "credits"],
 	"type": "COG",
-    "end_user_data_statement": "This cog does store Discord IDs as needed for operation."
+    "end_user_data_statement": "This cog stores discord IDs as needed for operation."
 }
