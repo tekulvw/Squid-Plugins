@@ -46,6 +46,7 @@ class Quotes(commands.Cog):
             await ctx.send("I can't DM you, you've blocked me.")
 
     @checks.mod_or_permissions(manage_guild=True)
+    @commands.guild_only()
     @commands.command()
     async def delquote(self, ctx, quote_number: int):
         """Deletes a quote by its number.
@@ -63,12 +64,14 @@ class Quotes(commands.Cog):
             await ctx.send(f"Quote {quote_number} does not exist.")
 
     @checks.mod_or_permissions(manage_guild=True)
+    @commands.guild_only()
     @commands.command()
     async def delallquote(self, ctx, quote_number: int):
         """Deletes all quotes for the guild."""
         await self.config.guild(ctx.guild).quotes.set([])
         await ctx.send("All quotes for this guild have been deleted.")
 
+    @commands.guild_only()
     @commands.command()
     async def allquotes(self, ctx):
         """Gets a list of all quotes."""
@@ -80,6 +83,7 @@ class Quotes(commands.Cog):
         for page in pagify(strbuffer, delims=["\n"], page_length=1980):
             await self._try_to_dm(ctx, box(page))
 
+    @commands.guild_only()
     @commands.command()
     async def quote(self, ctx, *, message = None):
         """Adds quote, retrieves random one, or a numbered one.
