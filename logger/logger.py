@@ -96,6 +96,7 @@ class Logger(commands.Cog):
         logger.setLevel(level)
 
     @commands.group()
+    @commands.is_owner()
     async def logger(self, ctx):
         """
         Commands for modifying logging levels.
