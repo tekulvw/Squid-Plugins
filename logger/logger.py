@@ -11,7 +11,7 @@ except ImportError:
     VERBOSE = logging.DEBUG - 3
     TRACE = logging.DEBUG - 5
 
-log = logging.getLogger("red.cogs.Squid-Plugins.bankvampire")
+log = logging.getLogger("red.cogs.Squid-Plugins.Logger")
 
 
 class Logger(commands.Cog):
