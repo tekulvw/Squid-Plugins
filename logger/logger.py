@@ -11,6 +11,8 @@ except ImportError:
     VERBOSE = logging.DEBUG - 3
     TRACE = logging.DEBUG - 5
 
+log = logging.getLogger("red.cogs.Squid-Plugins.bankvampire")
+
 
 class Logger(commands.Cog):
     LOGGER_CATEGORY = "LOGGER"
@@ -54,6 +56,7 @@ class Logger(commands.Cog):
         for name, data in all_data.items():
             logger = logging.getLogger(name)
             level = data['override']
+            log.info("refresh_levels - Setting %s to %s", name, level)
             logger.setLevel(level)
 
     def _available_loggers(self):
@@ -68,7 +71,9 @@ class Logger(commands.Cog):
             return level_name
 
         if level_name.lower().replace(" ", "") in self.name_to_int_map:
-            return self.name_to_int_map[level_name.lower().replace(" ", "")]
+            value = self.name_to_int_map[level_name.lower().replace(" ", "")]
+            log.info("Name: %s, Level: %s", level_name.lower().replace(" ", ""), value)
+            return value
         raise AttributeError
 
     def _loggers_with_levels(self):
@@ -93,7 +98,7 @@ class Logger(commands.Cog):
 
         if curr_default is None:
             await group.original.set(curr_level)
-
+        log.info("_set_level - Setting %s to %s", logger.name, level)
         await group.override.set(level)
 
         logger.setLevel(level)
