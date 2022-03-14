@@ -4,6 +4,12 @@ import tabulate
 from redbot.core import commands, Config
 from redbot.core.utils import chat_formatting
 
+try:
+    from redbot._log import VERBOSE, TRACE
+except ImportError:
+    VERBOSE = logging.DEBUG - 3
+    TRACE = logging.DEBUG - 5
+
 
 class Logger(commands.Cog):
     LOGGER_CATEGORY = "LOGGER"
@@ -31,7 +37,9 @@ class Logger(commands.Cog):
             "critical",
             "info",
             "error",
-            "notset"
+            "notset",
+            "verbose",
+            "trace"
         ]
 
         self.level_map = {
@@ -40,8 +48,12 @@ class Logger(commands.Cog):
             logging.WARNING: "Warning",
             logging.INFO: "Info",
             logging.DEBUG: "Debug",
+            VERBOSE: "Verbose",
+            TRACE: "Trace",
             logging.NOTSET: "Not set"
         }
+
+        self.name_to_int_map = {v.lower().replace(" ", ""): k for k, v in self.level_map.items()}
 
     async def red_delete_data_for_user(self, **kwargs):
         """Nothing to delete."""
@@ -65,8 +77,8 @@ class Logger(commands.Cog):
         if level_name.isdigit():
             return level_name
 
-        if level_name.lower() in self.levels:
-            return getattr(logging, level_name.upper())
+        if level_name.lower().replace(" ", "") in self.name_to_int_map:
+            return self.name_to_int_map[level_name.lower().replace(" ", "")]
 
     def _loggers_with_levels(self):
         loggers = self._available_loggers()
