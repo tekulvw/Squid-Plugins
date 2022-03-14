@@ -71,7 +71,7 @@ class Logger(commands.Cog):
     def _name_to_int(self, level_name: str):
         with contextlib.suppress(ValueError):
             if level_name.isdigit() and int(level_name) in self.level_map:
-                return level_name
+                return int(level_name)
 
         if level_name.lower().replace(" ", "") in self.name_to_int_map:
             value = self.name_to_int_map[level_name.lower().replace(" ", "")]
