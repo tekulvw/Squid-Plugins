@@ -46,6 +46,7 @@ class Logger(commands.Cog):
         }
 
         self.name_to_int_map = {v.lower().replace(" ", ""): k for k, v in self.level_map.items()}
+        log.info("name_to_int_map: %s", self.name_to_int_map)
 
     async def red_delete_data_for_user(self, **kwargs):
         """Nothing to delete."""
