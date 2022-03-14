@@ -3,6 +3,7 @@ import tabulate
 
 from redbot.core import commands, Config
 from redbot.core.utils import chat_formatting
+from redbot.core.utils.chat_formatting import humanize_list
 
 try:
     from redbot._log import VERBOSE, TRACE
@@ -30,17 +31,6 @@ class Logger(commands.Cog):
             self.LOGGER_CATEGORY,
             **logger_defaults
         )
-
-        self.levels = [
-            "debug",
-            "warning",
-            "critical",
-            "info",
-            "error",
-            "notset",
-            "verbose",
-            "trace"
-        ]
 
         self.level_map = {
             logging.CRITICAL: "Critical",
@@ -79,6 +69,7 @@ class Logger(commands.Cog):
 
         if level_name.lower().replace(" ", "") in self.name_to_int_map:
             return self.name_to_int_map[level_name.lower().replace(" ", "")]
+        raise AttributeError
 
     def _loggers_with_levels(self):
         loggers = self._available_loggers()
@@ -139,7 +130,7 @@ class Logger(commands.Cog):
         try:
             to_level = self._name_to_int(level)
         except AttributeError:
-            await ctx.send("Invalid level.")
+            await ctx.send(f"Invalid level, levels are {humanize_list(list(self.name_to_int_map.keys()))}")
             return
 
         await self._set_level(curr_log, to_level)
