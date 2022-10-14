@@ -7,7 +7,7 @@ from redbot.core.utils import chat_formatting
 from redbot.core.utils.chat_formatting import humanize_list
 
 try:
-    from redbot._log import VERBOSE, TRACE
+    from red_commons.logging  import VERBOSE, TRACE
 except ImportError:
     VERBOSE = logging.DEBUG - 3
     TRACE = logging.DEBUG - 5
