@@ -1,8 +1,18 @@
+import contextlib
 import logging
 import tabulate
 
 from redbot.core import commands, Config
 from redbot.core.utils import chat_formatting
+from redbot.core.utils.chat_formatting import humanize_list
+
+try:
+    from red_commons.logging  import VERBOSE, TRACE
+except ImportError:
+    VERBOSE = logging.DEBUG - 3
+    TRACE = logging.DEBUG - 5
+
+log = logging.getLogger("red.cogs.Squid-Plugins.Logger")
 
 
 class Logger(commands.Cog):
@@ -25,23 +35,18 @@ class Logger(commands.Cog):
             **logger_defaults
         )
 
-        self.levels = [
-            "debug",
-            "warning",
-            "critical",
-            "info",
-            "error",
-            "notset"
-        ]
-
         self.level_map = {
             logging.CRITICAL: "Critical",
             logging.ERROR: "Error",
             logging.WARNING: "Warning",
             logging.INFO: "Info",
             logging.DEBUG: "Debug",
+            VERBOSE: "Verbose",
+            TRACE: "Trace",
             logging.NOTSET: "Not set"
         }
+
+        self.name_to_int_map = {v.lower().replace(" ", ""): k for k, v in self.level_map.items()}
 
     async def red_delete_data_for_user(self, **kwargs):
         """Nothing to delete."""
@@ -52,6 +57,7 @@ class Logger(commands.Cog):
         for name, data in all_data.items():
             logger = logging.getLogger(name)
             level = data['override']
+            log.debug("refresh_levels - Setting %s to %s", name, level)
             logger.setLevel(level)
 
     def _available_loggers(self):
@@ -62,11 +68,14 @@ class Logger(commands.Cog):
         return self.level_map.get(level_int, "Unknown")
 
     def _name_to_int(self, level_name: str):
-        if level_name.isdigit():
-            return level_name
+        with contextlib.suppress(ValueError):
+            if level_name.isdigit() and int(level_name) in self.level_map:
+                return int(level_name)
 
-        if level_name.lower() in self.levels:
-            return getattr(logging, level_name.upper())
+        if level_name.lower().replace(" ", "") in self.name_to_int_map:
+            value = self.name_to_int_map[level_name.lower().replace(" ", "")]
+            return value
+        raise AttributeError
 
     def _loggers_with_levels(self):
         loggers = self._available_loggers()
@@ -90,7 +99,7 @@ class Logger(commands.Cog):
 
         if curr_default is None:
             await group.original.set(curr_level)
-
+        log.debug("_set_level - Setting %s to %s", logger.name, level)
         await group.override.set(level)
 
         logger.setLevel(level)
@@ -127,7 +136,7 @@ class Logger(commands.Cog):
         try:
             to_level = self._name_to_int(level)
         except AttributeError:
-            await ctx.send("Invalid level.")
+            await ctx.send(f"Invalid level, levels are {humanize_list(list(self.name_to_int_map.keys()))}")
             return
 
         await self._set_level(curr_log, to_level)
