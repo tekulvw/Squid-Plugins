@@ -4,4 +4,4 @@ __red_end_user_data_statement__ = "This cog stores discord IDs as needed for ope
 
 
 async def setup(bot):
-    bot.add_cog(Karma(bot))
+    await bot.add_cog(Karma(bot))
